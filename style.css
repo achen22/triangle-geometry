@@ -14,3 +14,7 @@ input {
   padding-left: 0.5em;
   padding-right: 0.5em;
 }
+
+input#file {
+  display: none;
+}
