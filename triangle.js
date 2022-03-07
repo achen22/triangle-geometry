@@ -1,9 +1,10 @@
 "use strict";
 
 const TEST = true;
+const CSVREADER = new FileReader();
 const BUTTON = document.getElementById("button");
 const FILEINPUT = document.getElementById("file");
-const CSVREADER = new FileReader();
+/** @type {number[][][]} */
 var triangles = [];
 
 /**
@@ -16,6 +17,55 @@ function distance(a, b) {
   let x = b[0] - a[0];
   let y = b[1] - a[1];
   return Math.sqrt(x * x + y * y);
+}
+
+function update() {
+  d3.select("body")
+    .selectAll("p")
+    .data(triangles)
+    .join(
+      function (enter) {
+        return enter.append("p")
+          .html(print);
+      },
+      function (update) {
+        return update
+          .html(print);
+      },
+      function (exit) {
+        return exit
+          .remove()
+      }
+    );
+}
+
+/**
+ * Prints data about the triangle
+ * @param {number[][]} triangle the triangle to describe
+ * @returns {string} text about the triangle
+ */
+function print(triangle) {
+  const letters = "ABC".split("");
+  let lines = [];
+  
+  // list points
+  let line = [];
+  for (let i = 0; i < 3; i++) {
+    line.push(letters[i] + "(" + triangle[i].join(", ") + ")");
+  }
+  lines.push(line.join(", "))
+
+  // distances
+  for (let i = 0; i < 3; i++) {
+    for (let j = i+1; j < 3; j++) {
+      lines.push(
+        "d(" + letters[i] + letters[j] + ") = " 
+            + distance(triangle[i], triangle[j]).toFixed(3)
+      );
+    }
+  }
+
+  return lines.join("<br>");
 }
 
 CSVREADER.onload = function (event) {
@@ -43,6 +93,7 @@ CSVREADER.onload = function (event) {
         [converted[4], converted[5]]
       ];
     });
+    update();
   } catch (error) {
     console.log(error);
     alert("Unable to process file!");
@@ -63,6 +114,4 @@ if (TEST) {
   console.assert(distance([0, 0], [0, 1]) === 1, "distance should be 1");
   console.assert(distance([0, 3], [4, 0]) === 5, "distance should be 5");
   console.assert(distance([-2, 13], [3, 1]) === 13, "distance should be 13");
-
-
 }
