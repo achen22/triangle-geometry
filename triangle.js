@@ -4,77 +4,84 @@ const TEST = true;
 const CSVREADER = new FileReader();
 const BUTTON = document.getElementById("button");
 const FILEINPUT = document.getElementById("file");
-/** @type {number[][][]} */
+/** @type {Point[][]} */
 var triangles = [];
 
-/**
- * Returns the square of the distance between two points
- * @param {[number, number]} a the coordinates of the first point
- * @param {[number, number]} b the coordinates of the second point
- * @returns {number} the square of the distance between the two points
- */
- function distance_squared(a, b) {
-  let x = b[0] - a[0];
-  let y = b[1] - a[1];
-  return x * x + y * y;
+/** Class representing a point in 2D space */
+class Point {
+  /**
+   * Create a point
+   * @param {number} x the x coordinate
+   * @param {number} y the y coordinate
+   * @param {string} label the label for the Point
+   */
+  constructor(x, y, label = "") {
+    this.x = x;
+    this.y = y;
+    this.label = label;
+  }
+
+  get sumOfSquares() {
+    return this.x * this.x + this.y * this.y;
+  }
+
+  get distance() { // from origin
+    return Math.hypot(this.x, this.y);
+  }
+
+  get angle() { // from positive x-axis
+    return Math.atan2(this.y, this.x);
+  }
+
+  /**
+   * Returns a Point representing the given Point's position relative to this Point
+   * @param {Point} other the Point to compare
+   * @returns {Point} the relative position to this Point
+   */
+  to(other) {
+    return new Point(other.x - this.x, other.y - this.y);
+  }
 }
 
 /**
- * Returns the distance between two points
- * @param {[number, number]} a the coordinates of the first point
- * @param {[number, number]} b the coordinates of the second point
- * @returns {number} the distance between the two points
- */
-function distance(a, b) {
-  return Math.sqrt(distance_squared(a, b));
-}
-
-/**
- * Returns the angle in radians at the first point
- * @param {number[]} a the coordinates of the point of the angle
- * @param {number[]} b the coordinates of the second point
- * @param {number[]} c the coordinates of the third point
- * @returns {number} the angle in radians at the first point
+ * Returns the convex angle in radians made by the straight lines connecting 
+ * Points `a` to `b` and `a` to `c`
+ * @param {Point} a the Point of the angle
+ * @param {Point} b the second Point
+ * @param {Point} c the third Point
+ * @returns {number} the angle in radians at the first Point
  */
 function angle(a, b, c) {
+  let line_b = a.to(b);
+  let line_c = a.to(c);
   // https://stackoverflow.com/questions/1211212/how-to-calculate-an-angle-from-three-points#answer-31334882
-  if (distance(a, b) == 0 || distance(a, c) == 0) {
+  if ((line_b.x == 0 && line_b.y == 0) || (line_c.x == 0 && line_c.y == 0)) {
     // no line segment
     return NaN;
   }
-  // atan2(y, x) gives the anti-clockwise angle of vector (x, y) from (1, 0)
-  let angle = Math.atan2(b[1] - a[1], b[0] - a[0]) - Math.atan2(c[1] - a[1], c[0] - a[0]);
+  let angle = line_b.angle - line_c.angle;
   // adjust angle to be between 0 and 2 * Math.PI
   angle = Math.abs(angle);
   // angle > Math.PI if reflex angle (exterior of triangle)
   return angle > Math.PI
-    ? 2 * Math.PI - angle
-    : angle;
+      ? 2 * Math.PI - angle
+      : angle;
 }
 
 /**
  * Prints data about the triangle
- * @param {number[][]} triangle the triangle to describe
+ * @param {Point[]} triangle the triangle to describe
  * @returns {string} text about the triangle
  */
 function print(triangle) {
-  const letters = "ABC";
-  let lines = [];
-  
   // list points
-  let line = [];
-  for (let i = 0; i < 3; i++) {
-    line.push(letters[i] + "(" + triangle[i].join(", ") + ")");
-  }
-  lines.push(line.join(", "))
+  let lines = [];
+  lines.push(triangle.map((point) => `${point.label}(${point.x}, ${point.x})`));
 
-  // distances
-  /** @type {number[]} */
-  let square_distances = [];
-  for (let i = 0; i < 3; i++) {
-    let points = triangle.filter(p => p != triangle[i]);
-    square_distances.push(distance_squared(...points));
-  }
+  let square_distances = triangle.map(point => {
+    let points = triangle.filter(p => p != point);
+    return points[0].to(points[1]).sumOfSquares
+  });
 
   if (square_distances.some(d => d == 0)) {
     // duplicate points
@@ -94,28 +101,27 @@ function print(triangle) {
 
   } else if (square_distances[0] == square_distances[1] || square_distances[0] == square_distances[2] || square_distances[1] == square_distances[2]) {
     // isoceles triangle
-    let index;
-    for (let i = 0; i < 3; i++) {
-      let connected = square_distances.filter(p => p != square_distances[i]);
+    let i;
+    let others;
+    for (i = 0; i < 3; i++) {
+      let connected = square_distances.filter(d => d != square_distances[i]);
       if (connected[0] == connected[1]) {
-        let others = letters.split("").filter(l => l != letters[i]);
-        lines.push("Distance between " + others.join(" and ") + " is " + Math.sqrt(square_distances[i]).toFixed(3));
-        others.forEach(l => {
-          lines.push("Distance between " + [letters[i], l].join(" and ") + " is " + Math.sqrt(connected[0]).toFixed(3));
+        others = triangle.filter(p => p != triangle[i]);
+        lines.push("Distance between " + others.map(p => p.label).join(" and ") + " is " + Math.sqrt(square_distances[i]).toFixed(3));
+        others.map(p => p.label).forEach(l => {
+          lines.push("Distance between " + [triangle[i].label, l].join(" and ") + " is " + Math.sqrt(connected[0]).toFixed(3));
         });
-        index = i;
         break;
       }
     }
 
     // https://en.wikipedia.org/wiki/Isosceles_triangle
     // only need to check one angle
-    let others = triangle.filter(p => p != triangle[index]);
-    let midpoint = [(others[0][0] + others[1][0]) / 2, (others[0][1] + others[1][1]) / 2];
-    if (triangle[index].every((d, i) => d == midpoint[i])) {
+    let midpoint = new Point((others[0].x + others[1].x) / 2, (others[0].y + others[1].y) / 2);
+    if (triangle[i].x == midpoint.x && triangle[i].y == midpoint.y) {
       lines.push("This is a degenerate triangle");
     } else {
-      let squared = square_distances[index];
+      let squared = square_distances[i];
       let diff = squared - square_distances.filter(d => d != squared).reduce((a, b) => a + b);
       if (diff == 0) {
         lines.push("This is a right isoceles triangle")
@@ -128,11 +134,11 @@ function print(triangle) {
 
   } else {
     // scalene triangle
-    let largest = Math.max(...square_distances);
+    const largest = Math.max(...square_distances);
     let diff = largest;
     for (let i = 0; i < 3; i++) {
-      let others = letters.split("").filter(l => l != letters[i]);
-      lines.push("Distance between " + others.join(" and ") + " is " + Math.sqrt(square_distances[i]).toFixed(3));
+      let labels = triangle.filter(p => p != triangle[i]).map(p => p.label);
+      lines.push("Distance between " + labels.join(" and ") + " is " + Math.sqrt(square_distances[i]).toFixed(3));
       if (square_distances[i] != largest) {
         diff -= square_distances[i];
       }
@@ -142,8 +148,8 @@ function print(triangle) {
     // m = (y1 - y0) / (x1 - x0) = (y2 - y0) / (x2 - x0)
     // (y1 - y0) * (x2 - x0) = (y2 - y0) * (x1 - x0)
     if (
-      (triangle[1][1] - triangle[0][1]) * (triangle[2][0] - triangle[0][0])
-          == (triangle[2][1] - triangle[0][1]) * (triangle[1][0] - triangle[0][0])
+      (triangle[1].y - triangle[0].y) * (triangle[2].x - triangle[0].x)
+          == (triangle[2].y - triangle[0].y) * (triangle[1].x - triangle[0].x)
     ) {
       lines.push("This is a degenerate triangle");
     } else if (diff == 0) {
@@ -158,7 +164,17 @@ function print(triangle) {
   return lines.join("<br>");
 }
 
-function update() {
+/**
+ * Updates the given d3.Selection to display the triangle
+ * @param {d3.Selection} div the d3.Selection
+ * @returns {d3.Selection} the updated d3.Selection
+ */
+function display_triangle(div) {
+  // TODO: implement this
+  return div;
+}
+
+function display_triangles() {
   d3.select("body")
     .selectAll("p")
     .data(triangles)
@@ -173,7 +189,7 @@ function update() {
       },
       function (exit) {
         return exit
-          .remove()
+          .remove();
       }
     );
 }
@@ -186,26 +202,25 @@ CSVREADER.onload = function (event) {
     triangles = data.map(function (line, i) {
       let values = line.trim().split(",");
       if (values.length < 6) {
-        let msg = "Line " + i.toString() + " contains only "
-                  + values.length.toString() + " items";
+        let msg = `Line ${i} contains only ${values.length} items`;
         throw new Error(msg);
       }
       let converted = values.map(function (value) {
         let n = parseFloat(value);
         if (Number.isNaN(n)) {
-          throw new Error(value + " cannot be parsed as float");
+          throw new Error(`${value} cannot be parsed as float`);
         }
         return n;
       });
       return [
-        [converted[0], converted[1]],
-        [converted[2], converted[3]],
-        [converted[4], converted[5]]
+        new Point(converted[0], converted[1], "A"),
+        new Point(converted[2], converted[3], "B"),
+        new Point(converted[4], converted[5], "C")
       ];
     });
-    update();
+    display_triangles();
   } catch (error) {
-    console.log(error);
+    console.error(error);
     alert("Unable to process file!");
   }
 }
@@ -221,24 +236,34 @@ FILEINPUT.onchange = function (event) {
 
 if (TEST) {
   let test;
-  // distance()
-  test = distance([0, 0], [0, 1]);
-  console.assert(test === 1, "distance should be 1", test);
-  test = distance([0, 3], [4, 0]);
+  // Point.distance
+  test = new Point(0, 1).distance;
+  console.assert(test == 1, "distance should be 1", test);
+  test = new Point(3, 4).distance;
   console.assert(test === 5, "distance should be 5", test);
-  test = distance([-2, 13], [3, 1]);
+  test = new Point(12, 5).distance;
   console.assert(test === 13, "distance should be 13", test);
 
+  // Point.angle
+  test = new Point(1, 0).angle;
+  console.assert(test == 0, "angle should be 0", test);
+  test = new Point(0, 1).angle;
+  console.assert(test == Math.PI / 2, `angle should be ${Math.PI / 2}`, test);
+  test = new Point(1, 1).angle;
+  console.assert(test == Math.PI / 4, `angle should be ${Math.PI / 4}`, test);
+  test = new Point(1, Math.sqrt(3)).angle;
+  console.assert(test == Math.PI / 3, `angle should be ${Math.PI / 3}`, test);
+
   // angle()
-  test = angle([1,2], [1,2], [1,3]);
+  test = angle(...[[1,2], [1,2], [1,3]].map(p => new Point(...p)));
   console.assert(isNaN(test), "angle should be NaN");
-  test = angle([0,1], [1,0], [0,1]);
+  test = angle(...[[0,1], [1,0], [0,1]].map(p => new Point(...p)));
   console.assert(isNaN(test), "angle should be NaN");
-  test = angle([0,0], [1,0], [0,1]);
-  console.assert(test == Math.PI / 2, "angle should be " + Math.PI / 2, test);
-  test = angle([0,1], [1,1], [1,0]);
-  console.assert(test == Math.PI / 4, "angle should be " + Math.PI / 4, test);
-  test = angle([0,Math.sqrt(3)], [1,0],[-1,0]);
+  test = angle(...[[0,0], [1,0], [0,1]].map(p => new Point(...p)));
+  console.assert(test == Math.PI / 2, `angle should be ${Math.PI / 2}`, test);
+  test = angle(...[[0,1], [1,1], [1,0]].map(p => new Point(...p)));
+  console.assert(test == Math.PI / 4, `angle should be ${Math.PI / 4}`, test);
+  test = angle(...[[0,Math.sqrt(3)], [1,0],[-1,0]].map(p => new Point(...p)));
   // this test fails due to rounding errors :(
-  console.assert(test == Math.PI / 3, "angle should be " + Math.PI / 3, test);
-}
+    console.assert(test == Math.PI / 3, `angle should be ${Math.PI / 3}`, test);
+  }
