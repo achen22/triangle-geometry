@@ -64,6 +64,10 @@ class Triangle {
     return array;
   }
 
+  get perimeter() {
+    return d3.sum(this.edges.map(e => e.distance));
+  }
+
   get angles() {
     let copy = this.points.slice();
     let array = [];
@@ -72,6 +76,12 @@ class Triangle {
       copy.push(copy.shift()); // rotate
     }
     return array;
+  }
+
+  get area() {
+    // https://en.wikipedia.org/wiki/Triangle#Using_coordinates
+    const p = this.points;
+    return 0.5 * Math.abs((p[0].x - p[2].x) * (p[1].y - p[0].y) - (p[0].x - p[1].x) * (p[2].y - p[0].y));
   }
 
   get type() {
@@ -154,6 +164,9 @@ function print(triangle) {
   triangle.edges.forEach(edge => {
     lines.push("Distance between " + edge.label.split("").join(" and ") + " is " + edge.distance);
   });
+
+  // area and perimeter
+  lines.push(`Area: ${triangle.area}, Perimeter: ${triangle.perimeter}`)
 
   // classify triangle
   let line = triangle.type;
@@ -256,7 +269,7 @@ function display_triangle(elem) {
       exit => exit.remove()
     );
   
-  // TODO: Edges
+  // Edges
   var polygon = svg.select("polygon");
   if (polygon.empty()) {
     polygon = svg.append("polygon");
@@ -361,5 +374,18 @@ if (TEST) {
   console.assert(test == Math.PI / 4, `angle should be ${Math.PI / 4}`, test);
   test = angle(...[[0,Math.sqrt(3)], [1,0],[-1,0]].map(p => new Point(...p)));
   // this test fails due to rounding errors (tested on Firefox)
-    console.assert(test == Math.PI / 3, `angle should be ${Math.PI / 3}`, test);
-  }
+  console.assert(test == Math.PI / 3, `angle should be ${Math.PI / 3}`, test);
+
+  // Triangle.perimeter
+  test = new Triangle(...[[5,5], [1,5], [5,2]].map(p => new Point(...p))).perimeter;
+  console.assert(test == 12, "angle should be 12", test);
+  test = new Triangle(...[[12,0], [0,5], [0,0]].map(p => new Point(...p))).perimeter;
+  console.assert(test == 30, "angle should be 30", test);
+
+  // Triangle.area
+  test = new Triangle(...[[5,5], [1,5], [5,2]].map(p => new Point(...p))).area;
+  console.assert(test == 6, "angle should be 12", test);
+  test = new Triangle(...[[12,0], [0,5], [0,0]].map(p => new Point(...p))).area;
+  console.assert(test == 30, "angle should be 30", test);
+  
+}
