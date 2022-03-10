@@ -18,3 +18,22 @@ input {
 input#file {
   display: none;
 }
+
+svg {
+  width: 50%;
+  border: 2px solid grey;
+}
+
+@media screen and (min-width: 800px) {
+  p {
+    width: 50%;
+    display: inline-block;
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  p {
+    width: 33%;
+    display: inline-block;
+  }
+}

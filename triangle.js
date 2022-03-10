@@ -145,10 +145,10 @@ function angle(a, b, c) {
  * @returns {string} text about the triangle
  */
 function print(triangle) {
-  let lines = [];
+  let lines = ["<svg></svg>"]; // should probably use d3 to add this later
 
   // list points
-  lines.push(triangle.points.map((point) => `${point.label}(${point.x}, ${point.x})`).join(", "));
+  lines.push(triangle.points.map((point) => `${point.label}(${point.x}, ${point.y})`).join(", "));
 
   // list lengths
   triangle.edges.forEach(edge => {
@@ -166,32 +166,127 @@ function print(triangle) {
 }
 
 /**
- * Updates the given d3.Selection to display the triangle
- * @param {d3.Selection} div the d3.Selection
+ * Returns the `svg` `viewBox` property to display this triangle
+ * @param {Triangle} triangle the triangle to display
+ * @returns {string} the `svg` `viewBox` property
+ */
+function svg_viewbox(triangle) {
+  const scale = 10;
+
+  var x = triangle.points.map(p => p.x);
+  x.sort((a, b) => a - b);
+  var x_min = x[0] - 1;
+  var width = x[2] - x[0] + 2;
+
+  var y = triangle.points.map(p => p.y);
+  y.sort((a, b) => a - b);
+  // svg uses opposite direction for y
+  var y_min = -y[2] - 1;
+  var height = y[2] - y[0] + 2;
+
+  return [x_min, y_min, width, height]
+    .map(n => Math.round(n * scale))
+    .join(" ");
+}
+
+/**
+ * Updates the given d3.Selection to display the point
+ * @param {d3.Selection} elem the d3.Selection
  * @returns {d3.Selection} the updated d3.Selection
  */
-function display_triangle(div) {
-  // TODO: implement this
-  return div;
+function display_point(elem) {
+  const scale = 8;
+  elem
+    .attr("cx", d => d.x * scale)
+    .attr("cy", d => -d.y * scale)
+    .attr("r", scale / 2)
+    .attr("opacity", 0.5);
+  return elem;
+}
+
+/**
+ * Updates the given d3.Selection to display the point
+ * @param {d3.Selection} elem the d3.Selection
+ * @returns {d3.Selection} the updated d3.Selection
+ */
+ function display_line(elem) {
+  const scale = 8;
+  elem
+    .attr("points", d => d.points.map(p => [p.x * scale, -p.y * scale].join(",")).join(" "))
+    .attr("fill", "grey")
+    .attr("stroke", "black")
+    .attr("opacity", 0.5);
+  return elem;
+}
+
+/**
+ * Updates the given d3.Selection to display the point
+ * @param {d3.Selection} elem the d3.Selection
+ * @returns {d3.Selection} the updated d3.Selection
+ */
+ function display_label(elem) {
+  const scale = 8;
+  elem
+    .text(d => d.label)
+    .attr("x", d => d.x * scale)
+    .attr("y", d => -d.y * scale)
+    .attr("font-size", `${scale * 0.75}px`)
+    .attr("fill", "white")
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "central");
+  return elem;
+}
+
+/**
+ * Updates the given d3.Selection to display the triangle
+ * @param {d3.Selection} elem the d3.Selection
+ * @returns {d3.Selection} the updated d3.Selection
+ */
+function display_triangle(elem) {
+  const svg = elem.html(print)
+    .select("svg")
+    .attr("viewBox", svg_viewbox);
+  
+  // Points
+  svg.selectAll("circle")
+    .data(d => d.points)
+    .join(
+      enter => display_point(enter.append("circle")),
+      update => display_point(update),
+      exit => exit.remove()
+    );
+  
+  // TODO: Edges
+  var polygon = svg.select("polygon");
+  if (polygon.empty()) {
+    polygon = svg.append("polygon");
+  }
+  svg.select("polygon")
+      .join(
+        enter => display_line(enter.append("polygon")),
+        update => display_line(update),
+        exit => exit.remove()
+      );
+
+  // Labels
+  svg.selectAll("text")
+      .data(d => d.points)
+      .join(
+        enter => display_label(enter.append("text")),
+        update => display_label(update),
+        exit => exit.remove()
+      );
+  return elem;
 }
 
 function display_triangles() {
-  d3.select("body")
+  const p = d3.select("body")
     .selectAll("p")
     .data(triangles)
     .join(
-      function (enter) {
-        return enter.append("p")
-          .html(print);
-      },
-      function (update) {
-        return update
-          .html(print);
-      },
-      function (exit) {
-        return exit
-          .remove();
-      }
+      enter => display_triangle(enter.append("p")),
+      update => display_triangle(update),
+      exit => exit.remove()
     );
 }
 
