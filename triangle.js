@@ -184,7 +184,8 @@ function print(triangle) {
  * @returns {string} the `svg` `viewBox` property
  */
 function svg_viewbox(triangle) {
-  const scale = 10;
+  const scale = 8;
+  var margin = 0.1;
 
   var x = triangle.points.map(p => p.x);
   x.sort((a, b) => a - b);
@@ -196,6 +197,12 @@ function svg_viewbox(triangle) {
   // svg uses opposite direction for y
   var y_min = -y[2] - 1;
   var height = y[2] - y[0] + 2;
+
+  margin *= Math.max(width, height, scale);
+  x_min -= margin;
+  y_min -= margin;
+  width += margin * 2;
+  height += margin * 2;
 
   return [x_min, y_min, width, height]
     .map(n => Math.round(n * scale))
